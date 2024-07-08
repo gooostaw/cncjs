@@ -1,23 +1,26 @@
-import get from 'lodash/get';
-import includes from 'lodash/includes';
-import mapValues from 'lodash/mapValues';
-import classNames from 'classnames';
-import PropTypes from 'prop-types';
-import React, { PureComponent } from 'react';
-import pubsub from 'pubsub-js';
-import api from 'app/api';
+import get from "lodash/get";
+import includes from "lodash/includes";
+import mapValues from "lodash/mapValues";
+import classNames from "classnames";
+import PropTypes from "prop-types";
+import React, { PureComponent } from "react";
+import pubsub from "pubsub-js";
+import api from "app/api";
 // import { TRACE, DEBUG, INFO, WARN, ERROR } from 'universal-logger';
-import { INFO } from 'universal-logger';
-import log from '../../lib/log';
-import Space from '../../components/Space';
-import Widget from '../../components/Widget';
-import controller from '../../lib/controller';
-import i18n from '../../lib/i18n';
-import { in2mm, mm2in } from '../../lib/units';
-import WidgetConfig from '../WidgetConfig';
-import AutoLevel from './AutoLevel';
-import MakeProbeFile from './MakeProbeFile';
-import ApplyAutoLevel from './ApplyAutoLevel';
+import { INFO } from "universal-logger";
+import log from "../../lib/log";
+import Space from "../../components/Space";
+import Widget from "../../components/Widget";
+import controller from "../../lib/controller";
+import i18n from "../../lib/i18n";
+import { in2mm, mm2in } from "../../lib/units";
+import WidgetConfig from "../WidgetConfig";
+import AutoLevel from "./AutoLevel";
+import MakeProbeFile from "./MakeProbeFile";
+import ApplyAutoLevel from "./ApplyAutoLevel";
+import _ from "lodash";
+import { asyncGcode } from "./async-gcode";
+
 // import VisualizerWidget from '../Visualizer';
 import {
   // Units
@@ -31,20 +34,16 @@ import {
   SMOOTHIE,
   // TinyG
   TINYG,
-} from '../../constants';
-import {
-  MODAL_NONE,
-  MODAL_PREVIEW,
-  MODAL_PREVIEW2
-} from './constants';
-import styles from './index.styl';
+} from "../../constants";
+import { MODAL_NONE, MODAL_PREVIEW, MODAL_PREVIEW2 } from "./constants";
+import styles from "./index.styl";
 
 class AutoLevelWidget extends PureComponent {
   static propTypes = {
     widgetId: PropTypes.string.isRequired,
     onFork: PropTypes.func.isRequired,
     onRemove: PropTypes.func.isRequired,
-    sortable: PropTypes.object
+    sortable: PropTypes.object,
   };
 
   // Public methods
@@ -63,27 +62,27 @@ class AutoLevelWidget extends PureComponent {
   probingGcode = [];
 
   downloadableCSV = (rows) => {
-    let content = '';
+    let content = "";
     rows.forEach((row, index) => {
-      content += row.join(',') + '\n';
+      content += row.join(",") + "\n";
     });
     return content;
-  }
+  };
 
   download = (content, fileName, contentType) => {
-    let a = document.createElement('a');
+    let a = document.createElement("a");
     let file = new Blob([content], { type: contentType });
     a.href = URL.createObjectURL(file);
     a.download = fileName;
     a.click();
-  }
+  };
 
   actions = {
     toggleFullscreen: () => {
       const { minimized, isFullscreen } = this.state;
       this.setState({
         minimized: isFullscreen ? minimized : false,
-        isFullscreen: !isFullscreen
+        isFullscreen: !isFullscreen,
       });
     },
     toggleMinimized: () => {
@@ -96,8 +95,8 @@ class AutoLevelWidget extends PureComponent {
       this.setState({
         modal: {
           name: name,
-          params: params
-        }
+          params: params,
+        },
       });
     },
     openModalApplyAutoLevel: (name = MODAL_NONE, params = {}) => {
@@ -105,16 +104,16 @@ class AutoLevelWidget extends PureComponent {
       this.setState({
         modal: {
           name: name,
-          params: params
-        }
+          params: params,
+        },
       });
     },
     closeModal: () => {
       this.setState({
         modal: {
           name: MODAL_NONE,
-          params: {}
-        }
+          params: {},
+        },
       });
     },
     // updateModalParams: (params = {}) => {
@@ -170,17 +169,18 @@ class AutoLevelWidget extends PureComponent {
     },
     loadProbingGcode: (commands) => {
       this.makeProbeFileCommands();
-      const gcode = this.probingGcode.join('');
+      const gcode = this.probingGcode.join("");
       //log.info('AutoLevel/index.jsx gcode' + gcode);
-      const name = 'something';
+      const name = "something";
       const { port } = this.state;
-      api.loadGCode({ port, name, gcode })
+      api
+        .loadGCode({ port, name, gcode })
         .then((res) => {
-          const { name = '', gcode = '' } = { ...res.body };
-          pubsub.publish('gcode:load', { name, gcode });
+          const { name = "", gcode = "" } = { ...res.body };
+          pubsub.publish("gcode:load", { name, gcode });
         })
         .catch((res) => {
-          log.error('Failed to upload G-code file');
+          log.error("Failed to upload G-code file");
         })
         .then(() => {
           //stopWaiting();
@@ -189,16 +189,17 @@ class AutoLevelWidget extends PureComponent {
     },
     loadAutoLevelledGcode: (result) => {
       //log.info('AutoLevel/index.jsx loadAutoLevelledGcode result' + result);
-      const gcode = result.join('\n');
-      const name = 'something';
+      const gcode = result.join("\n");
+      const name = "something";
       const { port } = this.state;
-      api.loadGCode({ port, name, gcode })
+      api
+        .loadGCode({ port, name, gcode })
         .then((res) => {
-          const { name = '', gcode = '' } = { ...res.body };
-          pubsub.publish('gcode:load', { name, gcode });
+          const { name = "", gcode = "" } = { ...res.body };
+          pubsub.publish("gcode:load", { name, gcode });
         })
         .catch((res) => {
-          log.error('Failed to upload G-code file');
+          log.error("Failed to upload G-code file");
         })
         .then(() => {
           //stopWaiting();
@@ -206,12 +207,12 @@ class AutoLevelWidget extends PureComponent {
         });
     },
     saveProbingGcode: (commands) => {
-      log.info('AutoLevel/index.jsx saveProbingGcode');
+      log.info("AutoLevel/index.jsx saveProbingGcode");
       this.makeProbeFileCommands();
-      let element = document.createElement('a');
-      let file = new Blob(this.probingGcode, { type: 'text/plain' });
+      let element = document.createElement("a");
+      let file = new Blob(this.probingGcode, { type: "text/plain" });
       element.href = URL.createObjectURL(file);
-      element.download = 'Probing.ngc';
+      element.download = "Probing.ngc";
       element.click();
     },
     simulateProbing: () => {
@@ -247,42 +248,118 @@ class AutoLevelWidget extends PureComponent {
             x: sx,
             y: sy,
             z: cz,
-            pz: sz
+            pz: sz,
           });
           row.push(cz);
         }
         this.state.probingMatrix.push(row);
         row = [];
       }
-      log.info('AutoLevel/index.jsx simProbingObj : ' + JSON.stringify(simProbingObj));
+      log.info(
+        "AutoLevel/index.jsx simProbingObj : " + JSON.stringify(simProbingObj)
+      );
       //log.info('AutoLevel/index.jsx matrix : ' + JSON.stringify(this.state.probingMatrix));
       this.setState({
         probingObj: simProbingObj,
-        referenceZ: 0.0
+        referenceZ: 0.0,
       });
     },
     clearGrid: () => {
-      log.info('AutoLevel/index.jsx clearGrid');
+      log.info("AutoLevel/index.jsx clearGrid");
       this.setState({
         probingObj: [],
         referenceZ: 0.0,
-        probingMatrix: []
+        probingMatrix: [],
       });
+    },
+    startAutoLevel: async () => {
+      const width = this.state.endX - this.state.startX;
+      const segmentsX = Math.max(Math.floor(width / this.state.stepX));
+      const dx = width / segmentsX;
+
+      const height = this.state.endY - this.state.startY;
+      const segmentsY = Math.max(Math.floor(height / this.state.stepY));
+      const dy = height / segmentsY;
+
+      const _this = this;
+      this.setState({ status: "running" });
+
+      function checkStop(){
+        console.log(`checkStop, status: ${_this.state.status}`)
+        if (_this.state.status === "stopping") {
+          _this.setState({ status: "idle" });
+          return true
+        }
+        return false
+      } 
+
+      for (let y = 0; y <= segmentsY; y++) {
+        for (let x = 0; x <= segmentsX; x++) {
+          if (checkStop()) {
+            return
+          }
+          if (y % 2 === 0) {
+            await asyncGcode(
+              `G0 X${this.state.startX + x * dx} Y${this.state.startY + y * dy}`
+            );
+          } else {
+            await asyncGcode(
+              `G0 X${this.state.startX + (width - x * dx)} Y${
+                this.state.startY + y * dy
+              }`
+            );
+            // controller.command("gcode", `G0 X${this.state.startX + (width - x * dx)} Y${this.state.startY + y * dy}\n`);
+          }
+          if (checkStop()) {
+            return
+          }
+          await asyncGcode(`G38.2 Z-${this.state.depth} F${this.state.feedZ}`);
+          if (checkStop()) {
+            return
+          }
+          await asyncGcode("M114");
+          await asyncGcode("G91");
+          await asyncGcode(`G0 Z${this.state.height}`);
+          await asyncGcode("G90");
+          if (checkStop()) {
+            return
+          }
+          // controller.command(
+          //   "gcode",
+          //   `G38.2 Z-${this.state.depth} F${this.state.feedZ}`
+          // );
+          // controller.command("gcode", "M114");
+          // controller.command("gcode", 'G91');
+          // controller.command("gcode", `G0 Z${this.state.height}\n`);
+          // controller.command("gcode", 'G90');
+        }
+      }
+
+      this.setState({ status: "idle" });
+    },
+    stopAutoLevel: async () => {
+      this.setState({ status: "stopping" });
+      controller.command("gcode", 'M108');
     },
     handleClickSave: () => {
       let prefix = Date.now();
-      let fileName = prefix + 'probedata.rpf';
+      let fileName = prefix + "probedata.rpf";
       let fileContent = JSON.stringify(this.state.probingObj);
-      log.info('AutoLevel/index.jsx fileContent=' + fileContent);
-      this.download(fileContent, fileName, 'text/plain');
+      log.info("AutoLevel/index.jsx fileContent=" + fileContent);
+      this.download(fileContent, fileName, "text/plain");
 
-      if (!(this.state.probingMatrix === undefined || this.state.probingMatrix.length === 0)) {
+      if (
+        !(
+          this.state.probingMatrix === undefined ||
+          this.state.probingMatrix.length === 0
+        )
+      ) {
         fileContent = this.downloadableCSV(this.state.probingMatrix);
         //log.info('AutoLevel/index.jsx csv=' + fileContent);
-        fileName = prefix + 'probedata.csv';
-        this.download(fileContent, fileName, 'text/plain');
+        fileName = prefix + "probedata.csv";
+        this.download(fileContent, fileName, "text/plain");
       }
-    }
+    },
   };
 
   makeProbeFileCommands = (commands) => {
@@ -290,12 +367,22 @@ class AutoLevelWidget extends PureComponent {
     //log.info( 'AutoLevel/index.jsx startX=' + this.state.startX);
     //log.info('AutoLevel/index.jsx makeProbeFileCommands:' + JSON.stringify(this.state));
     //let code = [];
-    let dx = (this.state.endX - this.state.startX) / parseInt((this.state.endX - this.state.startX) / this.state.stepX, 10);
-    let dy = (this.state.endY - this.state.startY) / parseInt((this.state.endY - this.state.startY) / this.state.stepY, 10);
-    this.probingGcode.push('(AL: probing initial point)\n');
+    let dx =
+      (this.state.endX - this.state.startX) /
+      parseInt((this.state.endX - this.state.startX) / this.state.stepX, 10);
+    let dy =
+      (this.state.endY - this.state.startY) /
+      parseInt((this.state.endY - this.state.startY) / this.state.stepY, 10);
+    this.probingGcode.push("(AL: probing initial point)\n");
     this.probingGcode.push(`G0 Z${this.state.height}\n`);
-    this.probingGcode.push(`G90 G0 X${this.state.startX.toFixed(3)} Y${this.state.startY.toFixed(3)} Z${this.state.height}\n`);
-    this.probingGcode.push(`G38.2 Z-${this.state.depth} F${this.state.feedZ / 2}\n`);
+    this.probingGcode.push(
+      `G90 G0 X${this.state.startX.toFixed(3)} Y${this.state.startY.toFixed(
+        3
+      )} Z${this.state.height}\n`
+    );
+    this.probingGcode.push(
+      `G38.2 Z-${this.state.depth} F${this.state.feedZ / 2}\n`
+    );
     //this.probingGcode.push('G10 L20 P1 Z0\n'); // set the z zero
     this.probingGcode.push(`G0 Z${this.state.height}\n`);
     let y = this.state.startY - dy;
@@ -314,41 +401,65 @@ class AutoLevelWidget extends PureComponent {
           x = this.state.endX;
         }
         //this.probingGcode.push(`(AL: probing point ${this.state.planedPointCount + 1})`);
-        this.probingGcode.push(`G90 G0 X${x.toFixed(3)} Y${y.toFixed(3)} F${this.state.feedXY}\n`);
-        this.probingGcode.push(`G38.2 Z-${this.state.depth} F${this.state.feedZ}\n`);
+        this.probingGcode.push(
+          `G90 G0 X${x.toFixed(3)} Y${y.toFixed(3)} F${this.state.feedXY}\n`
+        );
+        this.probingGcode.push(
+          `G38.2 Z-${this.state.depth} F${this.state.feedZ}\n`
+        );
         this.probingGcode.push(`G0 Z${this.state.height}\n`);
       }
     }
     //log.info('AutoLevel/index.jsx makeProbeFileCommands:' + JSON.stringify(this.probingGcode));
     //log.info('AutoLevel/index.jsx makeProbeFileCommands:' + this.probingGcode.join(''));
-  }
+  };
 
   controllerEvents = {
     // atmelino
-    'prbevent': (payload) => {
+    prbevent: (payload) => {
       //const { mypayload } = payload;
       //this.setState({ payload: payload });
-      log.info('AutoLevel/index.jsx Probing prbevent');
+      log.info("AutoLevel/index.jsx Probing prbevent");
     },
-    'gcode:load': (name, gcode, context) => {
-      log.info('AutoLevel/index.jsx gcode:load event');
+    "gcode:load": (name, gcode, context) => {
+      log.info("AutoLevel/index.jsx gcode:load event");
     },
-    'serialport:read': (received) => {
-      if (received.type === 'probing') {
+    "serialport:read": (received) => {
+      if(!this.state.status === 'running') {
+        return
+      }
+      if (_.isString(received)) {
+        const match = received.match(
+          /^X:(-?\d+\.\d+) Y:(-?\d+\.\d+) Z:(-?\d+\.\d+)/
+        );
+        if (match) {
+          const probingData = {
+            type: "probing",
+            printed: false,
+            result: {
+              x: parseFloat(match[1]),
+              y: parseFloat(match[2]),
+              z: parseFloat(match[3]),
+            },
+          };
+          this.setState({ probingData });
+        }
+        return;
+      }
+
+      if (received.type === "probing") {
         // atmelino
         // log.info('AutoLevel/index.jsx probing received through serialport:read');
         // log.info('AutoLevel/index.jsx  received=' + JSON.stringify(received));
         const modified = {
           type: received.type,
           printed: false,
-          result:
-          {
+          result: {
             result: received.result.result,
             x: Number(received.result.x),
             y: Number(received.result.y),
-            z: Number(received.result.z)
-          }
-
+            z: Number(received.result.z),
+          },
         };
         // log.info('AutoLevel/index.jsx  modified=' + JSON.stringify(modified));
 
@@ -356,36 +467,37 @@ class AutoLevelWidget extends PureComponent {
       }
       //const { opt } = received;
     },
-    'serialport:open': (options) => {
+    "serialport:open": (options) => {
       const { port } = options;
       this.setState({ port: port });
     },
-    'serialport:close': (options) => {
+    "serialport:close": (options) => {
       const initialState = this.getInitialState();
       this.setState({ ...initialState });
     },
-    'controller:settings': (type, controllerSettings) => {
-      this.setState(state => ({
+    "controller:settings": (type, controllerSettings) => {
+      this.setState((state) => ({
         controller: {
           ...state.controller,
           type: type,
-          settings: controllerSettings
-        }
+          settings: controllerSettings,
+        },
       }));
     },
-    'controller:state': (type, controllerState) => {
+    "controller:state": (type, controllerState) => {
       // Grbl
       if (type === GRBL) {
         const { status, parserstate } = { ...controllerState };
         const { mpos, wpos } = status;
         const { modal = {} } = { ...parserstate };
-        const units = {
-          'G20': IMPERIAL_UNITS,
-          'G21': METRIC_UNITS
-        }[modal.units] || this.state.units;
-        const $13 = Number(get(controller.settings, 'settings.$13', 0)) || 0;
+        const units =
+          {
+            G20: IMPERIAL_UNITS,
+            G21: METRIC_UNITS,
+          }[modal.units] || this.state.units;
+        const $13 = Number(get(controller.settings, "settings.$13", 0)) || 0;
 
-        let customDistance = this.config.get('jog.customDistance');
+        let customDistance = this.config.get("jog.customDistance");
         if (units === IMPERIAL_UNITS) {
           customDistance = mm2in(customDistance).toFixed(4) * 1;
         }
@@ -394,33 +506,39 @@ class AutoLevelWidget extends PureComponent {
         }
         // atmelino
         //log.error('axes controller:state');
-        this.setState(state => ({
+        this.setState((state) => ({
           units: units,
           controller: {
             ...state.controller,
             type: type,
-            state: controllerState
+            state: controllerState,
           },
           // Machine position are reported in mm ($13=0) or inches ($13=1)
-          machinePosition: mapValues({
-            ...state.machinePosition,
-            ...mpos
-          }, (val) => {
-            return ($13 > 0) ? in2mm(val) : val;
-          }),
+          machinePosition: mapValues(
+            {
+              ...state.machinePosition,
+              ...mpos,
+            },
+            (val) => {
+              return $13 > 0 ? in2mm(val) : val;
+            }
+          ),
           // Work position are reported in mm ($13=0) or inches ($13=1)
-          workPosition: mapValues({
-            ...state.workPosition,
-            ...wpos
-          }, val => {
-            return ($13 > 0) ? in2mm(val) : val;
-          }),
-          customDistance: customDistance
+          workPosition: mapValues(
+            {
+              ...state.workPosition,
+              ...wpos,
+            },
+            (val) => {
+              return $13 > 0 ? in2mm(val) : val;
+            }
+          ),
+          customDistance: customDistance,
         }));
       }
       // atmelino
       //log.error('AutoLevel Probing controller:state');
-    }
+    },
   };
 
   componentDidMount() {
@@ -433,10 +551,8 @@ class AutoLevelWidget extends PureComponent {
 
   componentDidUpdate(prevProps, prevState) {
     //log.info( 'AutoLevel/index.jsx componentDidUpdate');
-    const {
-      minimized
-    } = this.state;
-    this.config.set('minimized', minimized);
+    const { minimized } = this.state;
+    this.config.set("minimized", minimized);
 
     let {
       startX,
@@ -448,53 +564,54 @@ class AutoLevelWidget extends PureComponent {
       feedXY,
       feedZ,
       depth,
-      height
+      height,
     } = this.state;
-    this.config.set('startX', Number(startX));
-    this.config.set('endX', Number(endX));
-    this.config.set('startY', Number(startY));
-    this.config.set('endY', Number(endY));
-    this.config.set('stepX', Number(stepX));
-    this.config.set('stepY', Number(stepY));
-    this.config.set('feedXY', Number(feedXY));
-    this.config.set('feedZ', Number(feedZ));
-    this.config.set('depth', Number(depth));
-    this.config.set('height', Number(height));
+    this.config.set("startX", Number(startX));
+    this.config.set("endX", Number(endX));
+    this.config.set("startY", Number(startY));
+    this.config.set("endY", Number(endY));
+    this.config.set("stepX", Number(stepX));
+    this.config.set("stepY", Number(stepY));
+    this.config.set("feedXY", Number(feedXY));
+    this.config.set("feedZ", Number(feedZ));
+    this.config.set("depth", Number(depth));
+    this.config.set("height", Number(height));
   }
 
   getInitialState() {
     return {
-      minimized: this.config.get('minimized', false),
+      minimized: this.config.get("minimized", false),
       isFullscreen: false,
       canClick: true, // Defaults to true
       port: controller.port,
       controller: {
         type: controller.type,
         settings: controller.settings,
-        state: controller.state
+        state: controller.state,
       },
       modal: {
         name: MODAL_NONE,
-        params: {}
+        params: {},
       },
-      startX: Number(this.config.get('startX') || 0).toFixed(3) * 1,
-      endX: Number(this.config.get('endX') || 100).toFixed(3) * 1,
-      startY: Number(this.config.get('startY') || 0).toFixed(3) * 1,
-      endY: Number(this.config.get('endY') || 100).toFixed(3) * 1,
-      stepX: Number(this.config.get('stepX') || 10).toFixed(3) * 1,
-      stepY: Number(this.config.get('stepY') || 10).toFixed(3) * 1,
-      feedXY: Number(this.config.get('feedXY') || 600).toFixed(3) * 1,
-      feedZ: Number(this.config.get('feedZ') || 50).toFixed(3) * 1,
-      depth: Number(this.config.get('depth') || 5).toFixed(3) * 1,
-      height: Number(this.config.get('height') || 3).toFixed(3) * 1,
+      startX: Number(this.config.get("startX") || 0).toFixed(3) * 1,
+      endX: Number(this.config.get("endX") || 100).toFixed(3) * 1,
+      startY: Number(this.config.get("startY") || 0).toFixed(3) * 1,
+      endY: Number(this.config.get("endY") || 100).toFixed(3) * 1,
+      stepX: Number(this.config.get("stepX") || 10).toFixed(3) * 1,
+      stepY: Number(this.config.get("stepY") || 10).toFixed(3) * 1,
+      feedXY: Number(this.config.get("feedXY") || 600).toFixed(3) * 1,
+      feedZ: Number(this.config.get("feedZ") || 50).toFixed(3) * 1,
+      depth: Number(this.config.get("depth") || 5).toFixed(3) * 1,
+      height: Number(this.config.get("height") || 3).toFixed(3) * 1,
       probingObj: [],
       probingMatrix: [],
-      ALgcode: []
+      ALgcode: [],
+      status: "idle",
     };
   }
 
   addControllerEvents() {
-    Object.keys(this.controllerEvents).forEach(eventName => {
+    Object.keys(this.controllerEvents).forEach((eventName) => {
       const callback = this.controllerEvents[eventName];
       controller.addListener(eventName, callback);
       //log.error('AutoLevel Probing addControllerEvents');
@@ -502,7 +619,7 @@ class AutoLevelWidget extends PureComponent {
   }
 
   removeControllerEvents() {
-    Object.keys(this.controllerEvents).forEach(eventName => {
+    Object.keys(this.controllerEvents).forEach((eventName) => {
       const callback = this.controllerEvents[eventName];
       controller.removeListener(eventName, callback);
     });
@@ -527,10 +644,10 @@ class AutoLevelWidget extends PureComponent {
     const isForkedWidget = widgetId.match(/\w+:[\w\-]+/);
     const state = {
       ...this.state,
-      canClick: this.canClick()
+      canClick: this.canClick(),
     };
     const actions = {
-      ...this.actions
+      ...this.actions,
     };
     log.setLevel(INFO);
     //log.info('AutoLevelWidget render:' + JSON.stringify(state));
@@ -543,34 +660,34 @@ class AutoLevelWidget extends PureComponent {
               <i className="fa fa-bars" />
               <Space width="8" />
             </Widget.Sortable>
-            {isForkedWidget &&
+            {isForkedWidget && (
               <i className="fa fa-code-fork" style={{ marginRight: 5 }} />
-            }
-            {i18n._('AutoLevel')}
+            )}
+            {i18n._("AutoLevel")}
           </Widget.Title>
           <Widget.Controls className={this.props.sortable.filterClassName}>
             <Widget.Button
               disabled={isFullscreen}
-              title={minimized ? i18n._('Expand') : i18n._('Collapse')}
+              title={minimized ? i18n._("Expand") : i18n._("Collapse")}
               onClick={actions.toggleMinimized}
             >
               <i
                 className={classNames(
-                  'fa',
-                  { 'fa-chevron-up': !minimized },
-                  { 'fa-chevron-down': minimized }
+                  "fa",
+                  { "fa-chevron-up": !minimized },
+                  { "fa-chevron-down": minimized }
                 )}
               />
             </Widget.Button>
             <Widget.DropdownButton
-              title={i18n._('More')}
+              title={i18n._("More")}
               toggle={<i className="fa fa-ellipsis-v" />}
               onSelect={(eventKey) => {
-                if (eventKey === 'fullscreen') {
+                if (eventKey === "fullscreen") {
                   actions.toggleFullscreen();
-                } else if (eventKey === 'fork') {
+                } else if (eventKey === "fork") {
                   this.props.onFork();
-                } else if (eventKey === 'remove') {
+                } else if (eventKey === "remove") {
                   this.props.onRemove();
                 }
               }}
@@ -578,44 +695,42 @@ class AutoLevelWidget extends PureComponent {
               <Widget.DropdownMenuItem eventKey="fullscreen">
                 <i
                   className={classNames(
-                    'fa',
-                    'fa-fw',
-                    { 'fa-expand': !isFullscreen },
-                    { 'fa-compress': isFullscreen }
+                    "fa",
+                    "fa-fw",
+                    { "fa-expand": !isFullscreen },
+                    { "fa-compress": isFullscreen }
                   )}
                 />
                 <Space width="4" />
-                {!isFullscreen ? i18n._('Enter Full Screen') : i18n._('Exit Full Screen')}
+                {!isFullscreen
+                  ? i18n._("Enter Full Screen")
+                  : i18n._("Exit Full Screen")}
               </Widget.DropdownMenuItem>
               <Widget.DropdownMenuItem eventKey="fork">
                 <i className="fa fa-fw fa-code-fork" />
                 <Space width="4" />
-                {i18n._('Fork Widget')}
+                {i18n._("Fork Widget")}
               </Widget.DropdownMenuItem>
               <Widget.DropdownMenuItem eventKey="remove">
                 <i className="fa fa-fw fa-times" />
                 <Space width="4" />
-                {i18n._('Remove Widget')}
+                {i18n._("Remove Widget")}
               </Widget.DropdownMenuItem>
             </Widget.DropdownButton>
           </Widget.Controls>
         </Widget.Header>
         <Widget.Content
-          className={classNames(
-            styles.widgetContent,
-            { [styles.hidden]: minimized }
-          )}
+          className={classNames(styles.widgetContent, {
+            [styles.hidden]: minimized,
+          })}
         >
-          {state.modal.name === MODAL_PREVIEW &&
+          {state.modal.name === MODAL_PREVIEW && (
             <MakeProbeFile state={state} actions={actions} />
-          }
-          {state.modal.name === MODAL_PREVIEW2 &&
+          )}
+          {state.modal.name === MODAL_PREVIEW2 && (
             <ApplyAutoLevel state={state} actions={actions} />
-          }
-          <AutoLevel
-            state={state}
-            actions={actions}
-          />
+          )}
+          <AutoLevel state={state} actions={actions} />
         </Widget.Content>
       </Widget>
     );

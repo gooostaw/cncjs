@@ -355,5 +355,9 @@
     "functions": 60,
     "branches": 60,
     "statements": 80
+  },
+  "volta": {
+    "node": "14.21.3",
+    "yarn": "3.0.0"
   }
 }

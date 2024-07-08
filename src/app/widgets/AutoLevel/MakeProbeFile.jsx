@@ -211,13 +211,6 @@ class MakeProbeFile extends PureComponent {
           </button>
           <button
             type="button"
-            className="btn btn-default"
-            onClick={actions.closeModal}
-          >
-            {i18n._('Cancel')}
-          </button>
-          <button
-            type="button"
             className="btn btn-primary"
             onClick={() => {
               actions.closeModal();
@@ -236,6 +229,13 @@ class MakeProbeFile extends PureComponent {
             }}
           >
             {i18n._('Make File')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-default"
+            onClick={actions.closeModal}
+          >
+            {i18n._('OK')}
           </button>
         </Modal.Footer>
       </Modal>
