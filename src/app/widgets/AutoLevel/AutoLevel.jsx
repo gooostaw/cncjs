@@ -50,7 +50,7 @@ class AutoLevel extends PureComponent {
       // log.info('AutoLevel.jsx state.controller.state.status' + JSON.stringify(state.controller.state.status));
       // log.info('AutoLevel.jsx state.controller.state.status.wpos' + JSON.stringify(state.controller.state.status.wpos));
 
-      if (state.probingData.printed === false) {
+      if (state.status === 'running' && state.probingData.printed === false) {
         state.probingData.printed = true;
         //log.error('AutoLevel.jsx result :' + JSON.stringify(state.probingData.result));
         log.info(
