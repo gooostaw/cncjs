@@ -425,9 +425,6 @@ class AutoLevelWidget extends PureComponent {
       log.info("AutoLevel/index.jsx gcode:load event");
     },
     "serialport:read": (received) => {
-      if(!this.state.status === 'running') {
-        return
-      }
       if (_.isString(received)) {
         const match = received.match(
           /^X:(-?\d+\.\d+) Y:(-?\d+\.\d+) Z:(-?\d+\.\d+)/
