@@ -276,11 +276,7 @@ class ApplyAutoLevel extends PureComponent {
 
     try {
       let lines = this.gcode.split('\n');
-      let p0 = {
-        x: 0,
-        y: 0,
-        z: 0
-      };
+      let p0;
       let pt = {
         x: 0,
         y: 0,
@@ -316,6 +312,14 @@ class ApplyAutoLevel extends PureComponent {
             let zMatch = /Z([\.\+\-\d]+)/gi.exec(lineStripped);
             if (zMatch) {
               pt.z = parseFloat(zMatch[1]);
+            }
+
+            if(!p0){
+              p0 = {
+                x: pt.x,
+                y: pt.y,
+                z: pt.z,
+              };
             }
 
             if (abs) {
