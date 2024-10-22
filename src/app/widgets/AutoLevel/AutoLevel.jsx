@@ -50,7 +50,7 @@ class AutoLevel extends PureComponent {
       // log.info('AutoLevel.jsx state.controller.state.status' + JSON.stringify(state.controller.state.status));
       // log.info('AutoLevel.jsx state.controller.state.status.wpos' + JSON.stringify(state.controller.state.status.wpos));
 
-      if (state.status === 'running' && state.probingData.printed === false) {
+      if (state.status === "running" && state.probingData.printed === false) {
         state.probingData.printed = true;
         //log.error('AutoLevel.jsx result :' + JSON.stringify(state.probingData.result));
         log.info(
@@ -76,13 +76,25 @@ class AutoLevel extends PureComponent {
         let corz = PRBz - this.referenceZ; // corrected z
         // let cz = numeral(corz).format('0.000');
 
-        state.probingObj.push({
-          x: sx,
-          y: sy,
-          // z: cz,
-          z: corz,
-          pz: sz,
-        });
+        const existingProbePoint = state.probingObj.find(
+          (p) => p.x === sx && p.y === sy
+        );
+
+        if(existingProbePoint){
+          existingProbePoint.z = corz;
+          existingProbePoint.pz = sz;
+          log.info("AutoLevel.jsx replace probingObj point : " + JSON.stringify(existingProbePoint));
+        }
+        else{
+          state.probingObj.push({
+            x: sx,
+            y: sy,
+            // z: cz,
+            z: corz,
+            pz: sz,
+          });
+        }
+
         log.info(
           "AutoLevel.jsx probingObj : " + JSON.stringify(state.probingObj)
         );
