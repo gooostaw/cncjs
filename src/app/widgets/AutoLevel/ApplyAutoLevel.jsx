@@ -185,7 +185,7 @@ class ApplyAutoLevel extends PureComponent {
     for(const probePoint of probedPointsRaw) {
       const hash = `${probePoint.x}:${probePoint.y}`;
       if(probedPointsHashMap[hash]){
-        console.warn(`ApplyAutoLevel readProbingFile duplicate point: X:${probePoint.x} Y:${probePoint.y}`);
+        log.warn(`ApplyAutoLevel readProbingFile duplicate point: X:${probePoint.x} Y:${probePoint.y}`);
         continue
       }
       probedPointsHashMap[hash] = probePoint;
@@ -195,7 +195,7 @@ class ApplyAutoLevel extends PureComponent {
     for(const probePoint of Object.values(probedPointsHashMap)) {
       this.probedPoints.push(probePoint);
     }
-    
+
     this.delta = this.probedPoints[1].x - this.probedPoints[0].x;
     log.info('ApplyAutoLevel step=' + this.delta);
     this.setState({ step: this.delta });
